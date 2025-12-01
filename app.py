@@ -1,3 +1,4 @@
+%%writefile app.py
 import streamlit as st
 import PyPDF2
 from openai import AzureOpenAI
@@ -7,7 +8,7 @@ from openai import AzureOpenAI
 from dotenv import load_dotenv
 import requests
 
-# 1. 환경 변수 로드 (.env 파일 필요)
+# 환경 변수 로드 (.env 파일 필요)
 load_dotenv()
 
 search_endpoint = os.getenv("SEARCH_ENDPOINT")
@@ -16,10 +17,10 @@ search_index = os.getenv("SEARCH_INDEX_NAME")
 
 semantic_configuration = "healthy-eating-habits-data1-semantic-configuration"
 query_type = "vector_semantic_hybrid"
-OPENWEATHER_API_KEY = "33e5c255ce70fe7a48ba4665e5944b81"
+OPENWEATHER_API_KEY = os.getenv("WEATHER")
 
 
-# 2. Azure OpenAI 클라이언트 설정
+# Azure OpenAI 클라이언트 설정
 client = AzureOpenAI(
     api_key=os.getenv("AZURE_OAI_KEY"),
     azure_endpoint=os.getenv("AZURE_OAI_ENDPOINT"),
@@ -28,7 +29,7 @@ client = AzureOpenAI(
 
 # 페이지 설정
 st.set_page_config(
-    page_title="HealthWeather 🌤️",
+    page_title="HealthWeather 🌤️💚",
     page_icon="🌤️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -189,6 +190,10 @@ if "selected_city" not in st.session_state:
 def get_weather(city_name):
     """OpenWeatherMap API를 사용하여 날씨 정보 가져오기"""
     try:
+        # API 키 확인
+        if OPENWEATHER_API_KEY == "YOUR_OPENWEATHERMAP_API_KEY":
+            return "❌ OpenWeatherMap API 키를 설정해주세요!\n\n1. https://openweathermap.org 가입\n2. API Keys 메뉴에서 키 발급\n3. 코드의 OPENWEATHER_API_KEY에 붙여넣기"
+        
         # 한글 도시명을 영어로 변환하는 사전 (주요 도시 + 소도시)
         city_translation = {
             "서울": "Seoul", "부산": "Busan", "인천": "Incheon", "대구": "Daegu",
@@ -256,12 +261,16 @@ def get_weather(city_name):
             )
             return weather_text
         elif response.status_code == 401:
-            return f"❌ API 키가 유효하지 않습니다. OPENWEATHER_API_KEY를 확인해주세요."
+            return f"❌ API 키가 유효하지 않습니다.\n\n상태 코드: {response.status_code}\n해결방법:\n1. API 키가 정확한지 확인\n2. 새로 발급한 키는 10분~2시간 대기\n3. https://openweathermap.org/api 에서 키 상태 확인"
         else:
-            return f"❌ '{city_name}' 도시의 날씨 정보를 찾을 수 없습니다.\n💡 영어로 입력해보세요 (예: Seoul, Busan)"
+            return f"❌ '{city_name}' 도시의 날씨 정보를 찾을 수 없습니다.\n\n상태 코드: {response.status_code}\n응답: {response.text[:200]}\n\n💡 영어로 입력해보세요 (예: Seoul, Busan)"
             
+    except requests.exceptions.Timeout:
+        return "⚠️ 요청 시간 초과. 인터넷 연결을 확인해주세요."
+    except requests.exceptions.ConnectionError:
+        return "⚠️ 네트워크 연결 오류. 인터넷 연결을 확인해주세요."
     except Exception as e:
-        return f"⚠️ 날씨 정보를 가져오는 중 오류가 발생했습니다: {str(e)}"
+        return f"⚠️ 날씨 정보를 가져오는 중 오류가 발생했습니다.\n\n에러 내용: {str(e)}\n에러 타입: {type(e).__name__}"
 
 
 # ---------------------------- 
@@ -273,7 +282,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader(
         "건강 관련 문서를 올려주세요",
         type=["pdf"],
-        help="건강검진 결과, 운동 가이드 등 참고를 원하는 문서 업로드"
+        help="건강검진 결과, 운동 가이드 등"
     ) 
  
     if uploaded_file is not None: 
@@ -308,7 +317,7 @@ with st.sidebar:
     
     # 현재 저장된 날씨 정보 표시
     if st.session_state.weather_info:
-        st.success("날씨 정보 저장 완료")
+        st.success("날씨 정보 저장됨")
         st.info(st.session_state.weather_info)
         
     st.markdown("---")
@@ -323,11 +332,9 @@ with st.sidebar:
 
 # 메인 헤더
 st.markdown("""
-    <h1>
-        🌤️ HealthWeather Assistant 💚
-    </h1>
-    <p style='text-align: center; color: #2e7d32; font-size: 18px; margin-bottom: 30px;'>
-        날씨가 변하면, 건강관리도 변해요! 함께 건강한 하루 만들어봐요 😊
+    <h1>HealthWeather Assistant</h1>
+    <p style='text-align: center; color: #757575; font-size: 16px; margin-bottom: 30px;'>
+        날씨가 변하면, 건강관리도 변해요
     </p>
 """, unsafe_allow_html=True)
 
@@ -342,11 +349,57 @@ for message in st.session_state.messages:
 # ---------------------------- 
 # 4. 사용자 입력 
 # ---------------------------- 
-if prompt := st.chat_input("💬 무엇을 도와드릴까요? (예: 오늘 날씨에 어울리는 식단 추천해줘)"): 
+if prompt := st.chat_input("무엇을 도와드릴까요?"): 
  
     # 사용자 메시지 저장 
     st.chat_message("user").markdown(prompt) 
     st.session_state.messages.append({"role": "user", "content": prompt}) 
+ 
+    # ---------------------------- 
+    # 5. AI 응답 생성 
+    # ----------------------------
+    # 시스템 메시지 구성
+    system_instructions = []
+    
+    # 페르소나 및 말투 설정 (항상 포함)
+    system_instructions.append(
+        """당신은 친근하고 따뜻한 건강 관리 도우미입니다. 
+        
+말투 가이드라인:
+- 이모지를 적극 활용해서 대화를 생동감 있게 만드세요 (😊, 💪, 🥗, ☀️, 🌧️ 등)
+- 존댓말을 사용하되, 부드럽고 친근한 톤으로 대화하세요
+- "~네요", "~드려요", "~해요" 같은 둥근 말투를 사용하세요
+- 딱딱한 설명보다는 공감하고 격려하는 표현을 사용하세요
+- 예시: "오늘 날씨가 정말 좋네요! ☀️", "수고하셨어요! 💪", "함께 건강 관리해봐요! 😊"
+
+응답 스타일:
+- 답변 시작에 상황에 맞는 이모지 사용
+- 리스트 형태로 정보를 제공할 때도 각 항목에 이모지 추가
+- 긍정적이고 응원하는 메시지 포함
+- 전문적이지만 어렵지 않은 용어 사용"""
+    )
+    
+    # PDF 내용 추가
+    if st.session_state.pdf_text: 
+        system_instructions.append(
+            "\n\n아래는 사용자가 업로드한 PDF 파일의 내용입니다. "
+            "이 내용을 참고하여 질문에 답변하세요.\n\n"
+            f"PDF 내용:\n{st.session_state.pdf_text}"
+        )
+    
+    # 날씨 정보 추가
+    if st.session_state.weather_info:
+        system_instructions.append(
+            f"\n\n현재 사용자가 선택한 도시({st.session_state.selected_city})의 날씨 정보입니다. "
+            "날씨 관련 질문이 있을 때 이 정보를 자연스럽게 활용하여 답변하세요.\n\n"
+            f"{st.session_state.weather_info}"
+        )
+    
+    pdf_instruction = "\n".join(system_instructions)
+    
+    # Azure Search 사용 여부 결정 (건강/식단 관련 키워드가 있을 때만)
+    health_keywords = ['식단', '영양', '건강', '운동', '다이어트', '칼로리', '비타민', '단백질', '탄수화물', '질병', '증상']
+    use_rag = any(keyword in prompt for keyword in health_keywords) 
  
     # ---------------------------- 
     # 5. AI 응답 생성 
@@ -414,10 +467,10 @@ if prompt := st.chat_input("💬 무엇을 도와드릴까요? (예: 오늘 날�
                         "semantic_configuration": semantic_configuration, 
                         "query_type": query_type, 
                         "fields_mapping": {}, 
-                        "in_scope": True, 
+                        "in_scope": False, 
                         "filter": None, 
                         "strictness": 3, 
-                        "top_n_documents": 5, 
+                        "top_n_documents": 2, 
                         "authentication": { 
                             "type": "api_key", 
                             "key": f"{search_key}" 
@@ -433,9 +486,9 @@ if prompt := st.chat_input("💬 무엇을 도와드릴까요? (예: 오늘 날�
  
         assistant_reply = response.choices[0].message.content
         
-        # RAG 출처 정보 추출
+        # RAG 출처 정보 추출 (RAG 사용한 경우만)
         citations = []
-        if hasattr(response.choices[0].message, 'context'):
+        if use_rag and hasattr(response.choices[0].message, 'context'):
             context = response.choices[0].message.context
             if context and 'citations' in context:
                 citations = context['citations']
@@ -452,16 +505,21 @@ if prompt := st.chat_input("💬 무엇을 도와드릴까요? (예: 오늘 날�
                 filepath = citation.get('filepath', citation.get('url', ''))
                 content_snippet = citation.get('content', '')
                 
+                # 실제 사용된 부분만 표시 (chunk 또는 content 필드)
+                used_content = citation.get('chunk', content_snippet)
+                
                 with st.expander(f"📄 {idx}. {title}", expanded=False):
                     if filepath:
-                        st.markdown(f"**경로**: `{filepath}`")
-                    if content_snippet:
-                        st.markdown(f"**내용 미리보기**:")
-                        st.markdown(f"> {content_snippet[:200]}...")
-        elif st.session_state.pdf_text:
+                        st.markdown(f"**출처**: `{filepath}`")
+                    if used_content:
+                        st.markdown(f"**참고 내용**:")
+                        # 너무 길면 300자로 제한
+                        display_content = used_content[:300] + "..." if len(used_content) > 300 else used_content
+                        st.markdown(f"> {display_content}")
+        elif st.session_state.pdf_text and any(keyword in prompt for keyword in ['pdf', '문서', '파일', '업로드']):
             # PDF 업로드 내용을 참고한 경우
             st.markdown("---")
-            st.markdown("💡 *업로드하신 PDF 문서를 참고했어요!*")
+            st.markdown("💡 *업로드하신 PDF 문서를 참고했어요*")
         
         # 날씨 정보를 사용한 경우 표시
         if st.session_state.weather_info and any(word in prompt.lower() for word in ['날씨', '기온', '온도', '추워', '더워', '비', '눈']):
@@ -469,4 +527,3 @@ if prompt := st.chat_input("💬 무엇을 도와드릴까요? (예: 오늘 날�
  
     # AI 응답 저장 (출처 정보는 저장하지 않음, 답변만 저장)
     st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
-
