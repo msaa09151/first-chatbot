@@ -1,4 +1,3 @@
-%%writefile app.py
 import streamlit as st
 import PyPDF2
 from openai import AzureOpenAI
@@ -8,7 +7,7 @@ from openai import AzureOpenAI
 from dotenv import load_dotenv
 import requests
 
-# 환경 변수 로드 (.env 파일 필요)
+# 1. 환경 변수 로드 (.env 파일 필요)
 load_dotenv()
 
 search_endpoint = os.getenv("SEARCH_ENDPOINT")
@@ -20,7 +19,7 @@ query_type = "vector_semantic_hybrid"
 OPENWEATHER_API_KEY = os.getenv("WEATHER")
 
 
-# Azure OpenAI 클라이언트 설정
+# 2. Azure OpenAI 클라이언트 설정
 client = AzureOpenAI(
     api_key=os.getenv("AZURE_OAI_KEY"),
     azure_endpoint=os.getenv("AZURE_OAI_ENDPOINT"),
