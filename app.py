@@ -1,4 +1,3 @@
-%%writefile app.py
 import streamlit as st
 import PyPDF2
 from openai import AzureOpenAI
@@ -470,3 +469,4 @@ if prompt := st.chat_input("💬 무엇을 도와드릴까요? (예: 오늘 날�
  
     # AI 응답 저장 (출처 정보는 저장하지 않음, 답변만 저장)
     st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+
